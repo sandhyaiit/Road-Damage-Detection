@@ -1,95 +1,22 @@
-# Road damage detection across countries
+# Transfer learning for road damage detection
 
-This repo follows Arya, Maeda, Ghosh, Toshniwal, Mraz, Kashiyama, and Sekimoto, [Transfer Learning-based Road Damage Detection for Multiple Countries](https://arxiv.org/abs/2008.13101).
+This follows Arya, Maeda, Ghosh, Toshniwal, Mraz, Kashiyama, and Sekimoto, [Transfer Learning-based Road Damage Detection for Multiple Countries](https://arxiv.org/abs/2008.13101).
 
-The dataset has 26,620 smartphone photos from Japan, India, and the Czech Republic. Each damage box is one of four types:
+The dataset is RDD2020: 26,620 smartphone photos from Japan, India, and the Czech Republic. Damage boxes are labeled D00 (longitudinal crack), D10 (transverse crack), D20 (alligator crack), and D40 (pothole). Download it from [sekilab/RoadDamageDetector](https://github.com/sekilab/RoadDamageDetector). The photos are not in this repo.
 
-| Label | What it is |
-| --- | --- |
-| D00 | Longitudinal crack |
-| D10 | Transverse crack |
-| D20 | Alligator crack |
-| D40 | Pothole |
+## What is here
 
-The detector is SSD with a MobileNet backbone. Training starts from a MobileNet that has already been trained on ImageNet, then the detector is trained on road photos. Images are resized to 300×300. The learning rate is 0.003, the value given in the paper. A predicted box is counted as correct when its overlap with a labeled box (IoU) is at least 0.5. Precision, recall, and F1 are computed for each damage type.
+Three detectors were fine-tuned on that set:
 
-The paper's main result is that a model trained only on Japanese roads does poorly on Indian and Czech roads. Adding local photos to the Japanese photos is the setup they recommend. The 16 mixes below are the ones in their Table 2. `InJa_14k` (10,000 Japanese images and 4,000 Indian images) is the mix they single out for India and Japan together.
+- SSD MobileNet, 60,000 steps, in `Training_inference_SSD_mobilnet_60k_steps (2).pdf`
+- Faster R-CNN with Inception-ResNet at 640×640, in `Training_infrence_Faster_RCNN_Inception_resnet_640x640.pdf`
+- YOLOv3, in `YoloV3_training_inference.ipynb` and `data_prep_With_augmentation_YoloV3.pdf`
 
-The paper trained with the TensorFlow Object Detection API. This repo trains the same mixes in PyTorch with torchvision's MobileNet-SSD. The paper does not say how many epochs it trained, or which score cutoff it used for F1. Epochs default to 10. The score cutoff defaults to 0.5.
+SSD MobileNet was the model kept for the pipeline. `Final_pipeline.ipynb` runs it on photos. `Final_pipeline_video.ipynb` runs it on dashcam video. `app.py` is the Streamlit app, and `Deploy_model.ipynb` is the deployment notebook. `Deploy_model.webm` is a short recording of that app.
 
-## Dataset
+Data preparation for SSD and Faster R-CNN is in `Data_prep_for_SSD_and_Faster_RCNN_casestudy2.ipynb`. `EDA.ipynb` is the look at the labels before training.
 
-Download RDD2020 from [sekilab/RoadDamageDetector](https://github.com/sekilab/RoadDamageDetector). Unpack it under `data/` so the country folders look like this:
-
-```text
-data/
-  train/
-    Japan/
-      images/
-      annotations/xmls/
-    India/
-    Czech/
-  test1/
-    Japan/
-    India/
-    Czech/
-```
-
-`train` and `test1` are both read. Photos from the same country are pooled, then 1,000 images per country are held out as the test set. Smaller mixes are the first part of the larger mix for that country, so `Ja_2k` is contained in `Ja_10k`. Labels other than D00, D10, D20, and D40 are skipped.
-
-## The 16 mixes
-
-| Name | Japan | India | Czech | Scored on |
-| --- | ---: | ---: | ---: | --- |
-| Ja_2k | 2000 | 0 | 0 | Japan, India, Czech |
-| Ja_4k | 4000 | 0 | 0 | Japan, India, Czech |
-| Ja_6k | 6000 | 0 | 0 | Japan, India, Czech |
-| Ja_8k | 8000 | 0 | 0 | Japan, India, Czech |
-| Ja_10k | 10000 | 0 | 0 | Japan, India, Czech |
-| In_2k | 0 | 2000 | 0 | India |
-| In_4k | 0 | 4000 | 0 | India |
-| In_6k | 0 | 6000 | 0 | India |
-| In_8k | 0 | 8000 | 0 | India |
-| Cz_2k | 0 | 0 | 2000 | Czech |
-| InJa_12k | 10000 | 2000 | 0 | India, Japan |
-| InJa_14k | 10000 | 4000 | 0 | India, Japan |
-| InJa_16k | 10000 | 6000 | 0 | India, Japan |
-| InJa_18k | 10000 | 8000 | 0 | India, Japan |
-| JaCz_11k | 10000 | 0 | 1000 | Czech |
-| JaCz_12k | 10000 | 0 | 2000 | Czech |
-
-## Setup
-
-PyTorch and torchvision are required. A GPU is the practical way to train the full mixes. The code runs on CPU.
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install torch torchvision
-pip install -r requirements.txt
-```
-
-List the 16 mixes:
-
-```powershell
-python -m src.train --list
-```
-
-## Train
-
-```powershell
-python -m src.train --data data --experiment InJa_14k
-```
-
-The checkpoint and `report.json` go to `outputs/InJa_14k/`. The F1 numbers in that file are measured on the held-out photos. They are not copied from the paper.
-
-A short run that draws its own images, for checking that training and scoring work:
-
-```powershell
-python -m src.train --synthetic --epochs 1 --no-pretrained --output-dir outputs/smoke
-```
-
-Those numbers are not RDD2020 results.
+The notebooks were run in Colab, and the saved model path points at Google Drive (`mobile_ner_v2_fpnlite_640x640`). Weights are not included.
 
 ## Citation
 
